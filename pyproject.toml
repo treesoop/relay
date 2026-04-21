@@ -4,10 +4,20 @@ version = "0.1.0"
 description = "Local MCP server for Relay — agent skill sharing platform"
 requires-python = ">=3.11"
 dependencies = [
+    # Week 1
     "fastmcp>=0.1.0",
     "pyyaml>=6.0",
     "python-frontmatter>=1.0.0",
     "pydantic>=2.5.0",
+    # Week 2
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29.0",
+    "pgvector>=0.2.5",
+    "openai>=1.12.0",
+    "pydantic-settings>=2.1.0",
+    "httpx>=0.26.0",
 ]
 
 [project.optional-dependencies]
