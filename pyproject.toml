@@ -18,6 +18,8 @@ dependencies = [
     "openai>=1.12.0",
     "pydantic-settings>=2.1.0",
     "httpx>=0.26.0",
+    # Week 2C — local embeddings
+    "sentence-transformers>=3.0",
 ]
 
 [project.optional-dependencies]
