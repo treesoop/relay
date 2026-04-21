@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 
 from local_mcp.tools.capture import CaptureInput, capture_skill
 from local_mcp.tools.list_local import list_local_skills
+from local_mcp.tools.upload import UploadInput, upload_skill
 
 
 def build_server() -> FastMCP:
@@ -61,6 +62,16 @@ def build_server() -> FastMCP:
     def skill_list_local() -> list[dict[str, Any]]:
         """List every Relay-managed skill under ~/.claude/skills/."""
         return list_local_skills()
+
+    @mcp.tool()
+    async def skill_upload(name: str, api_url: str, agent_id: str) -> dict[str, str]:
+        """Upload a local `mine/<name>` skill to the central Relay API.
+
+        Masks PII, re-downloads the server-masked body, updates .relay.yaml with
+        uploaded=True and the body hash.
+        """
+        result = await upload_skill(UploadInput(name=name, api_url=api_url, agent_id=agent_id))
+        return {"remote_id": result.remote_id, "api_url": result.api_url}
 
     return mcp
 

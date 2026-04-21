@@ -21,6 +21,7 @@ async def test_server_registers_expected_tools(skill_root):
     names = set(tools.keys())
     assert "skill_capture" in names
     assert "skill_list_local" in names
+    assert "skill_upload" in names
 
 
 @pytest.mark.asyncio
