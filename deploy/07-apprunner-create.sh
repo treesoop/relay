@@ -2,7 +2,9 @@
 set -euo pipefail
 
 PROFILE="${AWS_PROFILE:-relay}"
-REGION="${AWS_REGION:-ap-northeast-2}"
+# App Runner is not available in ap-northeast-2 (Seoul) as of 2026.
+# Use ap-northeast-1 (Tokyo) for the service; RDS stays in Seoul (cross-region OK).
+REGION="${APPRUNNER_REGION:-ap-northeast-1}"
 STATE=".aws/deployment-state.json"
 
 SERVICE_NAME="relay-api"
