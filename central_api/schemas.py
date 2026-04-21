@@ -54,3 +54,21 @@ class SearchResultItem(BaseModel):
 
 class SearchResponse(BaseModel):
     items: list[SearchResultItem]
+
+
+ReviewSignal = Literal["good", "bad", "stale"]
+
+
+class ReviewRequest(BaseModel):
+    signal: ReviewSignal
+    reason: str | None = None
+    note: str | None = None
+
+
+class ReviewResponse(BaseModel):
+    id: int
+    skill_id: str
+    agent_id: str
+    signal: ReviewSignal
+    reason: str | None
+    note: str | None
