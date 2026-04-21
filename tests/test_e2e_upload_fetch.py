@@ -12,7 +12,7 @@ from local_mcp.types import Problem, RelayMetadata, Solution
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RELAY_RUN_E2E") != "1",
-    reason="opt-in: set RELAY_RUN_E2E=1 to run (requires docker compose up)",
+    reason="opt-in: set RELAY_RUN_E2E=1 to run (requires `docker compose up -d`)",
 )
 
 
