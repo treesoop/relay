@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from typing import Any, Protocol
 
 from openai import AsyncOpenAI
 
-from central_api.config import get_settings
+from central_api.config import Settings, get_settings
 
 
 def build_embedding_targets(
@@ -72,15 +73,41 @@ class OpenAIEmbedder:
         return [list(d.embedding) for d in resp.data]
 
 
+class LocalEmbedder:
+    """sentence-transformers in an async thread-pool shim.
+
+    Model is loaded once on first instantiation. Callers should reuse the instance
+    (LocalEmbedder() at app start, reused per request).
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5") -> None:
+        from sentence_transformers import SentenceTransformer
+
+        self._model = SentenceTransformer(model_name)
+
+    async def embed(self, text: str) -> list[float]:
+        vec = await asyncio.to_thread(
+            self._model.encode, text, normalize_embeddings=True
+        )
+        return vec.tolist()
+
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        vecs = await asyncio.to_thread(
+            self._model.encode, texts, normalize_embeddings=True, batch_size=32
+        )
+        return [v.tolist() for v in vecs]
+
+
 class StubEmbedder:
     """Deterministic fake embedder for tests. sha256(text) hashed down to floats."""
 
-    def __init__(self, dim: int = 1536) -> None:
+    def __init__(self, dim: int = 384) -> None:
         self._dim = dim
 
     def _vector(self, text: str) -> list[float]:
         seed = hashlib.sha256(text.encode("utf-8")).digest()
-        # Tile the digest bytes to fill dim dimensions; normalize to [-1, 1].
         out: list[float] = []
         i = 0
         while len(out) < self._dim:
@@ -94,3 +121,19 @@ class StubEmbedder:
 
     async def embed_many(self, texts: list[str]) -> list[list[float]]:
         return [self._vector(t) for t in texts]
+
+
+def build_embedder(settings: Settings | None = None) -> EmbeddingClient:
+    """Return an EmbeddingClient based on settings.
+
+    - provider=local (default): LocalEmbedder with settings.embedding_model
+    - provider=openai: OpenAIEmbedder — requires openai_api_key
+    """
+    s = settings or get_settings()
+    if s.embedding_provider == "openai":
+        if not s.openai_api_key:
+            raise ValueError(
+                "embedding_provider=openai requires openai_api_key (set RELAY_OPENAI_API_KEY)"
+            )
+        return OpenAIEmbedder()
+    return LocalEmbedder(model_name=s.embedding_model)
