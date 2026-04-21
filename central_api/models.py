@@ -44,9 +44,9 @@ class Skill(Base):
     # "metadata" is reserved on Base, so suffix with underscore and map to the real column.
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False)
 
-    description_embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
-    problem_embedding:     Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
-    solution_embedding:    Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    description_embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+    problem_embedding:     Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+    solution_embedding:    Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
 
     confidence: Mapped[float] = mapped_column(Float, default=0.5, server_default="0.5")
     used_count: Mapped[int]   = mapped_column(Integer, default=0, server_default="0")
