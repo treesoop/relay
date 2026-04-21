@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/plugins/cache/relay-local/relay/adapters/claude/hooks/post-tool-use.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
