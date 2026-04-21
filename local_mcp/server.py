@@ -5,6 +5,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from local_mcp.tools.capture import CaptureInput, capture_skill
+from local_mcp.tools.fetch import FetchInput, fetch_skill
 from local_mcp.tools.list_local import list_local_skills
 from local_mcp.tools.upload import UploadInput, upload_skill
 
@@ -72,6 +73,19 @@ def build_server() -> FastMCP:
         """
         result = await upload_skill(UploadInput(name=name, api_url=api_url, agent_id=agent_id))
         return {"remote_id": result.remote_id, "api_url": result.api_url}
+
+    @mcp.tool()
+    async def skill_fetch(
+        skill_id: str,
+        api_url: str,
+        agent_id: str,
+        mode: str = "downloaded",
+    ) -> dict[str, str]:
+        """Fetch a skill from the central API and save it under ~/.claude/skills/<mode>/<name>/."""
+        result = await fetch_skill(FetchInput(
+            skill_id=skill_id, api_url=api_url, agent_id=agent_id, mode=mode,  # type: ignore[arg-type]
+        ))
+        return {"name": result.name, "location": result.location, "skill_id": result.skill_id}
 
     return mcp
 
