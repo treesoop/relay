@@ -20,6 +20,11 @@ PGPASSWORD="$PASS" psql -h "$ENDPOINT" -U "$USER" -d "$NAME" \
   -v ON_ERROR_STOP=1 \
   -f central_api/sql/001_init.sql
 
+echo "[1b/2] Apply 002_reviews_trigger.sql"
+PGPASSWORD="$PASS" psql -h "$ENDPOINT" -U "$USER" -d "$NAME" \
+  -v ON_ERROR_STOP=1 \
+  -f central_api/sql/002_reviews_trigger.sql
+
 echo "[2/2] Verify schema"
 PGPASSWORD="$PASS" psql -h "$ENDPOINT" -U "$USER" -d "$NAME" -c "\d skills" | grep embedding
 PGPASSWORD="$PASS" psql -h "$ENDPOINT" -U "$USER" -d "$NAME" -c "SELECT extname FROM pg_extension WHERE extname='vector'"
