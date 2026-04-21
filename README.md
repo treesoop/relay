@@ -80,7 +80,8 @@ Claude Code / Cursor / Gemini / Codex
           v
   Central API (FastAPI on AWS App Runner)
   Postgres + pgvector on RDS
-  OpenAI text-embedding-3-small
+  Local embeddings — BGE-small-en-v1.5 (384 dims, sentence-transformers)
+  OpenAI text-embedding-3-small — opt-in via env var
 ```
 
 Each skill is a two-file directory:
@@ -103,6 +104,39 @@ The split means Relay never breaks Claude Code's official skill schema — custo
 - FastMCP stdio server, Claude Code plugin adapter (plugin manifest + SKILL.md + slash command).
 
 **35 tests passing. 13 focused commits. Live end-to-end smoke test passed in Claude Code 2.1.116.**
+
+## Week 2 shipped — central API + local embeddings
+
+- FastAPI server with Postgres + pgvector (384-dim).
+- Local BGE-small-en-v1.5 embeddings via sentence-transformers — no API keys required.
+- `POST /skills`, `GET /skills/{id}`, `GET /skills/search` with hybrid ranking (similarity + confidence + context match).
+- `skill_upload` + `skill_fetch` MCP tools, end-to-end tested through docker-compose.
+- PII masking of bodies and attempts before storage.
+- OpenAI embeddings available behind a single env var flip.
+
+## Privacy and embeddings
+
+Relay runs a **local embedding model** (`BAAI/bge-small-en-v1.5`, 384 dims, MTEB avg 62.17) by default. Your skill bodies never leave the Relay server, and no OpenAI API key is required.
+
+To opt in to OpenAI's embeddings (for possibly higher quality at some scale), set:
+
+    RELAY_EMBEDDING_PROVIDER=openai
+    RELAY_OPENAI_API_KEY=sk-...
+
+This also requires the DB schema to use `vector(1536)` instead of `vector(384)`. See the migration recipe below.
+
+### Changing embedding dimensions later
+
+Skill bodies and metadata are the source of truth; embeddings are a derived cache. To migrate to a different model/dimension:
+
+1. **For dev / small corpora:** edit `central_api/sql/001_init.sql` and `central_api/models.py`, then `docker compose down -v && docker compose up -d postgres`. Re-upload skills (only ever tens or hundreds).
+2. **For production / existing corpora:**
+   - Add new columns (`description_embedding_v2 vector(N)`, etc.) via migration.
+   - Backfill by iterating every skill and calling the new embedder on its stored body + metadata.
+   - Switch search/upload code to the `_v2` columns.
+   - Drop the old columns and indexes once traffic is fully cut over.
+
+Because `body` (TEXT) and `metadata` (JSONB) are always preserved, embedding migration is a pure recomputation — no data can be lost.
 
 ## Roadmap
 
