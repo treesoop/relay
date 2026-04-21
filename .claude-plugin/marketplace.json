@@ -1,0 +1,17 @@
+{
+  "name": "relay-local",
+  "owner": {
+    "name": "Dion",
+    "url": "https://github.com/dion"
+  },
+  "metadata": {
+    "description": "Local dev marketplace for Relay — agent skill sharing platform"
+  },
+  "plugins": [
+    {
+      "name": "relay",
+      "description": "Relay — agent skill sharing (Week 1: local capture + list)",
+      "source": "./adapters/claude"
+    }
+  ]
+}
