@@ -54,7 +54,10 @@ async def fetch_skill(inp: FetchInput) -> FetchResult:
     frontmatter = {k: v for k, v in frontmatter.items() if v is not None}
 
     metadata = RelayMetadata.from_dict(data["metadata"])
-    # Server is the source of truth on counts/confidence when fetched.
+    # Server is the source of truth on id/counts/confidence when fetched.
+    # The canonical id lives on the top-level response, not inside the uploaded metadata.
+    metadata.id = data["id"]
+    metadata.source_agent_id = data["source_agent_id"]
     metadata.confidence = data["confidence"]
     metadata.used_count = data["used_count"]
     metadata.good_count = data["good_count"]
