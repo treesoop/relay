@@ -1,0 +1,11 @@
+{
+  "name": "relay",
+  "version": "0.1.0",
+  "description": "Relay — agent skill sharing (Week 1: local capture + list)",
+  "mcpServers": {
+    "relay": {
+      "command": "relay-mcp",
+      "args": []
+    }
+  }
+}
