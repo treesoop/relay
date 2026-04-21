@@ -138,6 +138,35 @@ Skill bodies and metadata are the source of truth; embeddings are a derived cach
 
 Because `body` (TEXT) and `metadata` (JSONB) are always preserved, embedding migration is a pure recomputation — no data can be lost.
 
+## Deployment
+
+Relay's central API ships to AWS App Runner (Seoul, `ap-northeast-2`) with RDS PostgreSQL 16 + pgvector. All infrastructure lives in `deploy/` as idempotent shell scripts — no Terraform yet, but each script writes its state to `.aws/deployment-state.json` so later steps and redeploys pick up existing ARNs.
+
+### First-time provision
+
+    ./deploy/00-preflight.sh
+    ./deploy/01-rds-create.sh        # ~8 min wait
+    ./deploy/02-rds-init.sh
+    ./deploy/03-secrets-create.sh
+    ./deploy/04-ecr-create.sh
+    ./deploy/05-image-push.sh        # ~10-20 min first time (QEMU amd64)
+    ./deploy/06-iam-create.sh
+    ./deploy/07-apprunner-create.sh  # ~5-7 min wait
+    ./deploy/08-smoke.sh
+
+### Redeploy after a code change
+
+    ./deploy/05-image-push.sh
+    aws apprunner start-deployment \
+      --service-arn "$(jq -r .apprunner_service_arn .aws/deployment-state.json)" \
+      --profile relay --region ap-northeast-2
+
+### Teardown
+
+    ./deploy/99-teardown.sh          # irreversible after Secrets recovery window; confirms first
+
+See `deploy/README.md` for the full runbook and known constraints (App Runner x86_64-only, public RDS, QEMU emulation on arm64 hosts).
+
 ## Roadmap
 
 Relay is a 4-week MVP targeting dogfood release.
