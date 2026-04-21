@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS skills (
     body TEXT NOT NULL,
     metadata JSONB NOT NULL,
 
-    description_embedding vector(1536),
-    problem_embedding     vector(1536),
-    solution_embedding    vector(1536),
+    description_embedding vector(384),
+    problem_embedding     vector(384),
+    solution_embedding    vector(384),
 
     confidence FLOAT DEFAULT 0.5,
     used_count INT DEFAULT 0,
