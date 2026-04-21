@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import pytest
 from local_mcp.types import (
     Attempt,
@@ -68,6 +67,41 @@ def test_relay_metadata_defaults():
     assert m.uploaded is False
     assert m.uploaded_hash is None
     assert m.problem is None
+
+
+def test_to_dict_omits_none_fields():
+    # Attempt: only set fields should appear
+    assert Attempt(worked="x").to_dict() == {"worked": "x"}
+    assert Attempt(tried="y").to_dict() == {"tried": "y"}
+
+    # Problem: context omitted when None
+    assert Problem(symptom="s").to_dict() == {"symptom": "s"}
+
+    # RelayMetadata: problem/solution/uploaded_hash/last_verified omitted when None
+    m = RelayMetadata(
+        id="sk_x",
+        source_agent_id="p",
+        created_at="2026-04-21T10:00:00Z",
+        updated_at="2026-04-21T10:00:00Z",
+    )
+    d = m.to_dict()
+    for absent in ("problem", "solution", "uploaded_hash", "last_verified"):
+        assert absent not in d, f"{absent!r} should be omitted when None"
+    # Required/defaulted fields should still be present
+    for present in (
+        "id", "version", "source_agent_id", "created_at", "updated_at",
+        "confidence", "used_count", "good_count", "bad_count",
+        "trigger", "context", "attempts", "uploaded", "status",
+    ):
+        assert present in d, f"{present!r} should always be present"
+
+    # Roundtrip preserves the None-ness
+    back = RelayMetadata.from_yaml(m.to_yaml())
+    assert back == m
+    assert back.problem is None
+    assert back.solution is None
+    assert back.uploaded_hash is None
+    assert back.last_verified is None
 
 
 def test_relay_metadata_yaml_roundtrip():

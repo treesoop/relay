@@ -84,6 +84,8 @@ class Solution:
 
 @dataclass
 class RelayMetadata:
+    # Numeric invariants (counts, confidence bounds) are owned by the central server.
+    # Local files mirror server state — we do not re-validate them here.
     id: str
     source_agent_id: str
     created_at: str
