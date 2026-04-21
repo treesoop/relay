@@ -1,4 +1,3 @@
-from pathlib import Path
 import pytest
 
 from local_mcp.config import get_skill_root
