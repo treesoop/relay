@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from local_mcp.tools.capture import CaptureInput, capture_skill
 from local_mcp.tools.fetch import FetchInput, fetch_skill
 from local_mcp.tools.list_local import list_local_skills
+from local_mcp.tools.review import ReviewInput, review_skill
 from local_mcp.tools.upload import UploadInput, upload_skill
 
 
@@ -86,6 +87,27 @@ def build_server() -> FastMCP:
             skill_id=skill_id, api_url=api_url, agent_id=agent_id, mode=mode,  # type: ignore[arg-type]
         ))
         return {"name": result.name, "location": result.location, "skill_id": result.skill_id}
+
+    @mcp.tool()
+    async def skill_review(
+        skill_id: str,
+        api_url: str,
+        agent_id: str,
+        signal: str,
+        reason: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, object]:
+        """Submit a review (good/bad/stale) for a central Relay skill.
+
+        Triggers server-side confidence recompute and may auto-stale the skill
+        after 3 stale signals.
+        """
+        result = await review_skill(ReviewInput(
+            skill_id=skill_id, api_url=api_url, agent_id=agent_id,
+            signal=signal,  # type: ignore[arg-type]
+            reason=reason, note=note,
+        ))
+        return {"review_id": result.review_id, "skill_id": result.skill_id}
 
     return mcp
 
