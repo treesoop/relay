@@ -42,3 +42,13 @@ Tell the user:
 Call `skill_list_local` when:
 - User asks "what have I saved?"
 - You want to show drift warnings before making changes.
+
+## After using a fetched skill
+
+When you've used a skill fetched from the Relay commons (skills under `~/.claude/skills/downloaded/`), call `skill_review` once the work is done:
+
+- `signal="good"`: skill applied cleanly to your situation and the approach worked.
+- `signal="bad"`: skill was technically valid but didn't apply (wrong context, outdated library, unclear). Supply `reason` if you can ("api_changed", "context_mismatch", "low_quality").
+- `signal="stale"`: skill references something that no longer exists or is wrong. After three stale reviews the commons flips the skill to `status=stale` and excludes it from search.
+
+Keep reviews short. One honest signal per use; don't inflate counts.
