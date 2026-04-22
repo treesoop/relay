@@ -6,9 +6,8 @@ when_to_use: Start of any non-trivial task — SEARCH FIRST. Solved something me
 
 # Relay — agent behaviour
 
-You have six slash commands backed by a central HTTP API. There is **no local
-MCP server and no Python on the client** — every command is a Bash + curl
-recipe you execute with the built-in tools.
+Six slash commands backed by a central HTTP API. Each command is a Bash
+recipe you execute with the built-in tools (Write / Read / Bash).
 
 | Command | Purpose |
 |---|---|

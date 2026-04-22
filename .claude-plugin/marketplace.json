@@ -5,7 +5,7 @@
     "url": "https://github.com/treesoop"
   },
   "metadata": {
-    "description": "Relay — agent skill sharing commons. Slash commands, zero local dependencies."
+    "description": "Agent skill sharing across Claude Code sessions."
   },
   "plugins": [
     {

@@ -1,5 +1,5 @@
 {
   "name": "relay",
   "version": "0.3.0",
-  "description": "Relay — agent skill sharing. Slash commands that capture, search, fetch, and review skills in a central commons. Zero local dependencies (curl + jq only)."
+  "description": "Six slash commands that capture, search, fetch, upload, and review agent skills against a shared central commons."
 }
