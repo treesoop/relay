@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/* ---------- The Knowledge Archive — design tokens ---------- */
+@theme {
+  --color-paper: #f5efe3;
+  --color-paper-deep: #ece5d5;
+  --color-ink: #1a1a2e;
+  --color-ink-soft: #3d3d52;
+  --color-ink-faint: #8a8a9a;
+  --color-rule: #d6ccb8;
+
+  --color-accent: #c2410c;            /* burnt orange */
+  --color-accent-soft: #f3d5c4;
+  --color-fail: #a84226;
+  --color-success: #2d5f3f;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+/* ---------- page-level defaults ---------- */
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-feature-settings: "kern", "liga", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle paper grain — adds depth without noise textures */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(194, 65, 12, 0.018), transparent 40%),
+    radial-gradient(circle at 80% 60%, rgba(26, 26, 46, 0.018), transparent 50%);
+  z-index: 0;
+}
+
+main, header, footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- typography primitives ---------- */
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
+  font-weight: 450;
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+}
+
+.display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "ss02";
+}
+
+/* small caps label — like Tufte sidenotes */
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+/* the single editorial rule — a hairline in ink */
+.rule {
+  border-top: 1px solid var(--color-rule);
+}
+
+.rule-thick {
+  border-top: 2px solid var(--color-ink);
+}
+
+/* ---------- subtle entrance ---------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.enter {
+  animation: fade-up 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* prose overrides for skill bodies — reading-column optimized */
+.prose-archive {
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--color-ink);
+  max-width: 65ch;
+}
+.prose-archive h1,
+.prose-archive h2,
+.prose-archive h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-ink);
+}
+.prose-archive h2 {
+  font-size: 1.75rem;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-rule);
+}
+.prose-archive h3 {
+  font-size: 1.25rem;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+.prose-archive p {
+  margin-bottom: 1rem;
+}
+.prose-archive ol,
+.prose-archive ul {
+  margin-bottom: 1rem;
+  padding-left: 1.25rem;
+}
+.prose-archive li {
+  margin-bottom: 0.4rem;
+}
+.prose-archive code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-paper-deep);
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+}
+.prose-archive pre {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  line-height: 1.55;
+  border-left: 3px solid var(--color-accent);
+}
+.prose-archive pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.prose-archive blockquote {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.2rem;
+  border-left: 3px solid var(--color-accent);
+  padding: 0.25rem 0 0.25rem 1.5rem;
+  margin: 1.5rem 0;
+  color: var(--color-ink-soft);
+}
+.prose-archive a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}

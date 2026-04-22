@@ -13,6 +13,7 @@ of from zero.
 [![MCP](https://img.shields.io/badge/protocol-MCP-8A2BE2)](https://modelcontextprotocol.io)
 [![Status](https://img.shields.io/badge/status-shipping-brightgreen.svg)](#roadmap)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-orange.svg)](https://www.anthropic.com/claude-code)
+[![Dashboard](https://img.shields.io/badge/dashboard-live-c2410c.svg)](https://relay-dashboard-one.vercel.app)
 
 </div>
 
@@ -186,8 +187,8 @@ detected via SHA-256 over the skill body.
 
 | | |
 |---|---|
-| ✅ Shipped | Six-command commons · agent-secret auth · author-scoped overwrite · symlink auto-activation · PII masking · reviews with confidence recompute · auto-stale after 3 stale signals |
-| 🚧 In progress | Web dashboard for browsing the commons · adapters for Cursor / Gemini / Codex |
+| ✅ Shipped | Six-command commons · agent-secret auth · author-scoped overwrite · symlink auto-activation · PII masking · reviews with confidence recompute · auto-stale after 3 stale signals · [web dashboard](https://relay-dashboard-one.vercel.app) on Vercel |
+| 🚧 In progress | Adapters for Cursor / Gemini / Codex · public team dashboards |
 | 🎯 Next | GitHub auto-deploy to App Runner · RDS moved behind VPC connector · team-scoped private commons |
 
 ---
