@@ -16,7 +16,6 @@ from local_mcp.types import RelayMetadata
 class SkillLocation(str, Enum):
     MINE = "mine"
     DOWNLOADED = "downloaded"
-    STAGING = "staging"
 
 
 # kebab-case-ish, 1-80 chars, no path separators, no dots at edges
@@ -57,6 +56,26 @@ def _files_for(name: str, location: SkillLocation) -> SkillFiles:
     return SkillFiles(dir=d, skill_md=d / SKILL_MD, relay_yaml=d / RELAY_YAML)
 
 
+def _activate_symlink(name: str, target: Path) -> None:
+    """Create ~/.claude/skills/<name> symlink pointing at the real skill dir.
+
+    Claude Code auto-activates skills found at `~/.claude/skills/<name>/SKILL.md`.
+    Our real storage nests under mine/ or downloaded/, so the symlink flattens
+    the layout without losing the mine-vs-downloaded semantic.
+
+    Idempotent: replaces any existing link/dir at that path.
+    """
+    link = get_skill_root() / name
+    # Clean up anything already there — symlink, broken symlink, or accidental dir.
+    if link.is_symlink() or link.exists():
+        try:
+            link.unlink()
+        except IsADirectoryError:
+            # Only happens if someone manually mkdir'd at the flat path; refuse to touch.
+            return
+    link.symlink_to(target, target_is_directory=True)
+
+
 def write_skill(
     *,
     name: str,
@@ -71,6 +90,10 @@ def write_skill(
     post = fm_lib.Post(body, **frontmatter)
     files.skill_md.write_text(fm_lib.dumps(post) + "\n", encoding="utf-8")
     files.relay_yaml.write_text(metadata.to_yaml(), encoding="utf-8")
+
+    # Flatten into the Claude-Code-scanned layout so auto-activation fires.
+    _activate_symlink(name, files.dir)
+
     return files
 
 

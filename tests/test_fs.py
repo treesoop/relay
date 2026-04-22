@@ -26,11 +26,6 @@ def test_skill_dir_downloaded(skill_root):
     assert d == skill_root / "downloaded" / "foo"
 
 
-def test_skill_dir_staging(skill_root):
-    d = skill_dir("foo", SkillLocation.STAGING)
-    assert d == skill_root / "staging" / "foo"
-
-
 def test_skill_dir_rejects_path_traversal(skill_root):
     with pytest.raises(ValueError, match="invalid skill name"):
         skill_dir("../evil", SkillLocation.MINE)
@@ -111,6 +106,37 @@ def test_read_skill_roundtrip(skill_root):
 def test_read_skill_missing_raises(skill_root):
     with pytest.raises(FileNotFoundError):
         read_skill(name="does-not-exist", location=SkillLocation.MINE)
+
+
+def test_write_skill_creates_activation_symlink(skill_root):
+    """After write_skill, ~/.claude/skills/<name> must be a symlink to the real dir
+    so Claude Code's flat scanner can find SKILL.md."""
+    fm = {"name": "linkme", "description": "d"}
+    files = write_skill(
+        name="linkme", location=SkillLocation.MINE,
+        frontmatter=fm, body="body", metadata=_sample_metadata(),
+    )
+
+    link = skill_root / "linkme"
+    assert link.is_symlink()
+    assert link.resolve() == files.dir.resolve()
+    # Claude Code should see SKILL.md through the flat link.
+    assert (link / "SKILL.md").exists()
+
+
+def test_write_skill_replaces_stale_symlink(skill_root):
+    """Re-writing a skill must refresh the symlink (idempotent)."""
+    fm = {"name": "refresh", "description": "d"}
+    meta = _sample_metadata()
+    write_skill(name="refresh", location=SkillLocation.MINE,
+                frontmatter=fm, body="v1", metadata=meta)
+    # Simulate: skill moved from mine → downloaded (e.g. fetch after capture).
+    write_skill(name="refresh", location=SkillLocation.DOWNLOADED,
+                frontmatter=fm, body="v2", metadata=meta)
+
+    link = skill_root / "refresh"
+    assert link.is_symlink()
+    assert link.resolve() == (skill_root / "downloaded" / "refresh").resolve()
 
 
 def test_write_skill_overwrites(skill_root):

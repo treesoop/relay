@@ -80,11 +80,15 @@ def build_server() -> FastMCP:
         skill_id: str,
         api_url: str,
         agent_id: str,
-        mode: str = "downloaded",
     ) -> dict[str, str]:
-        """Fetch a skill from the central API and save it under ~/.claude/skills/<mode>/<name>/."""
+        """Fetch a skill from the central API and save it under ~/.claude/skills/downloaded/<name>/.
+
+        Auto-activated on next session via ~/.claude/skills/<name> symlink. If you
+        just want to preview the content without committing, use skill_search —
+        it returns body inline without writing to the filesystem.
+        """
         result = await fetch_skill(FetchInput(
-            skill_id=skill_id, api_url=api_url, agent_id=agent_id, mode=mode,  # type: ignore[arg-type]
+            skill_id=skill_id, api_url=api_url, agent_id=agent_id,
         ))
         return {"name": result.name, "location": result.location, "skill_id": result.skill_id}
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 import httpx
 
@@ -9,15 +8,11 @@ from local_mcp.fs import SkillLocation, write_skill
 from local_mcp.types import RelayMetadata
 
 
-FetchMode = Literal["downloaded", "staging"]
-
-
 @dataclass
 class FetchInput:
     skill_id: str
     api_url: str
     agent_id: str
-    mode: FetchMode = "downloaded"
 
 
 @dataclass
@@ -64,14 +59,11 @@ async def fetch_skill(inp: FetchInput) -> FetchResult:
     metadata.bad_count = data["bad_count"]
     metadata.status = data["status"]
 
-    location = (
-        SkillLocation.STAGING if inp.mode == "staging" else SkillLocation.DOWNLOADED
-    )
     write_skill(
         name=name,
-        location=location,
+        location=SkillLocation.DOWNLOADED,
         frontmatter=frontmatter,
         body=data["body"],
         metadata=metadata,
     )
-    return FetchResult(name=name, location=location.value, skill_id=data["id"])
+    return FetchResult(name=name, location=SkillLocation.DOWNLOADED.value, skill_id=data["id"])

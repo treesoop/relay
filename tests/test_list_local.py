@@ -29,14 +29,13 @@ def test_list_empty(skill_root):
     assert list_local_skills() == []
 
 
-def test_list_includes_all_locations(skill_root):
+def test_list_includes_both_locations(skill_root):
     _write(skill_root, "a", SkillLocation.MINE)
     _write(skill_root, "b", SkillLocation.DOWNLOADED)
-    _write(skill_root, "c", SkillLocation.STAGING)
 
     results = list_local_skills()
     locations = {r["name"]: r["location"] for r in results}
-    assert locations == {"a": "mine", "b": "downloaded", "c": "staging"}
+    assert locations == {"a": "mine", "b": "downloaded"}
 
 
 def test_list_exposes_symptom_and_confidence(skill_root):

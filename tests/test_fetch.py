@@ -59,14 +59,14 @@ async def test_fetch_writes_to_downloaded_by_default(skill_root, fake_api):
 
 
 @pytest.mark.asyncio
-async def test_fetch_respects_staging_mode(skill_root, fake_api):
-    result = await fetch_skill(FetchInput(
+async def test_fetch_creates_activation_symlink(skill_root, fake_api):
+    await fetch_skill(FetchInput(
         skill_id="sk_remote_abc", api_url="http://test", agent_id="me",
-        mode="staging",
     ))
-    assert result.location == "staging"
-    loaded = read_skill(name="stripe-429", location=SkillLocation.STAGING)
-    assert loaded.metadata.id == "sk_remote_abc"
+    link = skill_root / "stripe-429"
+    assert link.is_symlink()
+    assert link.resolve() == (skill_root / "downloaded" / "stripe-429").resolve()
+    assert (link / "SKILL.md").exists()
 
 
 @pytest.mark.asyncio
