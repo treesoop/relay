@@ -7,7 +7,7 @@ A local-first MCP server that captures what an agent learned and makes it discov
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-8A2BE2)](https://modelcontextprotocol.io)
 [![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#roadmap)
-[![Tests](https://img.shields.io/badge/tests-35%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-109%20passing-brightgreen.svg)](#development)
 
 ---
 
@@ -73,8 +73,9 @@ Claude Code / Cursor / Gemini / Codex
   |-- mine/<name>/          captured locally
   |   |-- SKILL.md          official Claude Code format
   |   `-- .relay.yaml       problem / attempts / solution metadata
-  |-- downloaded/           fetched from the commons (Week 2+)
-  `-- staging/              search-result previews
+  |-- downloaded/<name>/    fetched from the commons
+  `-- <name>                flat symlink → mine/ or downloaded/
+                            (Claude Code auto-activates from this path)
           |
           | HTTPS (Week 2+)
           v
@@ -91,7 +92,20 @@ Each skill is a two-file directory:
 
 The split means Relay never breaks Claude Code's official skill schema — custom fields live in the sidecar, not in the frontmatter.
 
-## Current status — Week 1 shipped
+## Current status — Weeks 1–4 shipped
+
+**Full MVP loop is live** against a cloud deployment (AWS App Runner, Tokyo). What works today:
+
+- `skill_capture`, `skill_list_local`, `skill_upload`, `skill_fetch`, `skill_review` MCP tools + matching `/relay:*` slash commands.
+- Symlink-based auto-activation — every captured or fetched skill is reachable at `~/.claude/skills/<name>` so Claude Code picks it up on the next session.
+- Central API with pgvector similarity search, PII masking, reviews, confidence recompute, auto-stale after 3 stale signals.
+- **Secret-based agent auth** (see [Security](#security)) and author-scoped `PATCH` / `DELETE` for skill overwrite.
+- Drift detection via SHA-256 body hash.
+- `install.sh` one-liner, `/relay:*` slash commands on the Claude Code plugin, fresh-Claude blind test confirmed auto-activation.
+
+**109 tests passing** (48 local MCP + 61 central API). Cloud smoke in `docs/verification/`.
+
+## Legacy — Week 1 shipped
 
 **Local MCP server is live.** What works today:
 
@@ -138,6 +152,18 @@ Skill bodies and metadata are the source of truth; embeddings are a derived cach
 
 Because `body` (TEXT) and `metadata` (JSONB) are always preserved, embedding migration is a pure recomputation — no data can be lost.
 
+## Security
+
+Writes to the commons (upload / overwrite / review / delete) are authenticated with a per-agent secret:
+
+1. On the first upload, the client calls `POST /auth/register` and the server issues a secret **once**. It's persisted locally at `~/.config/relay/credentials.json` (mode 0600) — the server only keeps its SHA-256 hash.
+2. Every write request must carry `X-Relay-Agent-Id` + `X-Relay-Agent-Secret`. A wrong secret returns 401.
+3. `PATCH` and `DELETE` on a skill additionally require `source_agent_id == authenticated agent`, so only the original uploader can modify or remove their own skills.
+4. Read endpoints (`GET /skills`, `GET /skills/search`, `GET /skills/{id}`) only need `X-Relay-Agent-Id` — the commons is public-read for now.
+5. Input size caps: description ≤ 2 KB, body ≤ 50 KB. Rate limit: 100 requests/minute per agent.
+
+Legacy agents created before auth shipped get a fresh secret on their next `POST /auth/register` call (server-side migration path; no manual reset needed).
+
 ## Deployment
 
 Relay's central API ships to AWS App Runner (Seoul, `ap-northeast-2`) with RDS PostgreSQL 16 + pgvector. All infrastructure lives in `deploy/` as idempotent shell scripts — no Terraform yet, but each script writes its state to `.aws/deployment-state.json` so later steps and redeploys pick up existing ARNs.
@@ -172,9 +198,10 @@ See `deploy/README.md` for the full runbook and known constraints (App Runner x8
 Relay is a 4-week MVP targeting dogfood release.
 
 - **Week 1 — Local MCP + file storage** · *done*
-- **Week 2 — Central API** · FastAPI on AWS App Runner (Seoul region), RDS Postgres + pgvector, OpenAI embeddings, `skill_upload` / `skill_fetch`.
-- **Week 3 — Review + auto-capture** · `skill_review`, confidence re-scoring, stale auto-transition, error-recovery hook.
-- **Week 4 — Polish + closed beta** · install script, slash commands, documentation, 5-user closed beta.
+- **Week 2 — Central API** · FastAPI on AWS App Runner, RDS Postgres + pgvector, local BGE embeddings, `skill_upload` / `skill_fetch`. · *done*
+- **Week 3 — Review + confidence** · `skill_review`, confidence recompute, stale auto-transition. · *done*
+- **Week 4 — Polish + auth + overwrite** · install script, slash commands, symlink auto-activation, agent-secret auth, author-scoped `PATCH`/`DELETE`, rate limits, input caps. · *done*
+- **Next** · closed beta recruitment, GitHub auto-deploy, VPC connector for RDS, web dashboard.
 
 Full design in [`SPEC.md`](./SPEC.md). Week-by-week plans in [`docs/superpowers/plans/`](./docs/superpowers/plans/).
 
@@ -194,7 +221,14 @@ Requires Python 3.11+.
 python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pytest           # 35 tests, should all pass
+
+# Local MCP tests (no services required)
+pytest tests/                                   # 48 tests
+
+# Full suite including central API (needs postgres + pgvector)
+docker compose up -d postgres
+RELAY_TEST_DATABASE_URL="postgresql+asyncpg://relay:relay@localhost:5432/relay" \
+  pytest                                        # 109 tests
 ```
 
 Layout:
