@@ -1,16 +1,16 @@
 {
-  "name": "relay-local",
+  "name": "relay",
   "owner": {
     "name": "Dion",
-    "url": "https://github.com/dion"
+    "url": "https://github.com/treesoop"
   },
   "metadata": {
-    "description": "Local dev marketplace for Relay — agent skill sharing platform"
+    "description": "Relay — agent skill sharing commons. Slash commands, zero local dependencies."
   },
   "plugins": [
     {
       "name": "relay",
-      "description": "Relay — agent skill sharing (Week 1: local capture + list)",
+      "description": "Capture, search, fetch, upload, and review skills against the Relay commons.",
       "source": "./adapters/claude"
     }
   ]

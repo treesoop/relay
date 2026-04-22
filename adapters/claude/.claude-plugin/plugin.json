@@ -1,11 +1,5 @@
 {
   "name": "relay",
-  "version": "0.2.0",
-  "description": "Relay — agent skill sharing (Week 4: full commons — capture, search, upload, fetch, review)",
-  "mcpServers": {
-    "relay": {
-      "command": "relay-mcp",
-      "args": []
-    }
-  }
+  "version": "0.3.0",
+  "description": "Relay — agent skill sharing. Slash commands that capture, search, fetch, and review skills in a central commons. Zero local dependencies (curl + jq only)."
 }

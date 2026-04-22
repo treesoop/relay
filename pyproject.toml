@@ -1,26 +1,20 @@
 [project]
-name = "relay-mcp"
-version = "0.1.0"
-description = "Local MCP server for Relay — agent skill sharing platform"
+name = "relay-server"
+version = "0.3.0"
+description = "Central API server for Relay — agent skill sharing commons"
 requires-python = ">=3.11"
 dependencies = [
-    # Week 1
-    "fastmcp>=0.1.0",
-    "pyyaml>=6.0",
-    "python-frontmatter>=1.0.0",
-    "pydantic>=2.5.0",
-    # Week 2
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29.0",
     "pgvector>=0.2.5",
-    "openai>=1.12.0",
+    "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
     "httpx>=0.26.0",
-    # Week 2C — local embeddings
+    "pyyaml>=6.0",
     "sentence-transformers>=3.0",
-    # Week 3B — rate limiting
+    "openai>=1.12.0",
     "slowapi>=0.1.9",
 ]
 
@@ -31,21 +25,18 @@ dev = [
     "ruff>=0.4",
 ]
 
-[project.scripts]
-relay-mcp = "local_mcp.server:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["local_mcp"]
+packages = ["central_api"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["tests", "central_api/tests"]
+testpaths = ["central_api/tests"]
 
 [tool.ruff]
 line-length = 100

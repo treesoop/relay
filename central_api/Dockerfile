@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 COPY pyproject.toml ./
 COPY README.md ./
 COPY central_api ./central_api
-COPY local_mcp ./local_mcp
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

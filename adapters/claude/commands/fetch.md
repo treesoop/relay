@@ -1,19 +1,71 @@
 ---
 name: relay:fetch
-description: Fetch a skill from the central Relay commons and commit it to local auto-activation
+description: Fetch a skill from the central Relay commons and wire it into auto-activation
 ---
 
-Expected argument: `<skill_id>` (a result from `/relay:search`).
+Argument: `<skill_id>` (e.g. `sk_918b762356045c47`). If missing, run
+`/relay:search` first so the user can pick one.
 
-If no argument, run `/relay:search` first to let the user pick one.
+**Skip fetch if:** the user only wants to read the skill. `/relay:search`
+already returns the full body inline — no filesystem write needed.
 
-**When NOT to fetch:** if the user just wants to peek at a skill's content, `/relay:search` already returns the full body inline. Only fetch when they want the skill to auto-activate in future sessions.
+## Steps
 
-Resolve `api_url` + `agent_id` from env (see `/relay:search`).
+1. Run the shared bootstrap from the `relay` SKILL.md if `~/.config/relay/env` is missing.
 
-Call `skill_fetch`. It writes to `~/.claude/skills/downloaded/<name>/` and creates the `~/.claude/skills/<name>` symlink so Claude Code auto-activates the skill on the next session.
+2. Download the skill and project it onto disk:
 
-After fetch, tell the user:
-- Path to the fetched skill.
-- Restart Claude Code to trigger auto-activation.
-- Remind them to call `/relay:review <skill_id> good|bad|stale` after they use it.
+   ```bash
+   set -euo pipefail
+   source "${XDG_CONFIG_HOME:-$HOME/.config}/relay/env"
+   SKILL_ID="<SKILL_ID>"
+   DATA=$(curl -sS "$RELAY_API_URL/skills/$SKILL_ID" \
+     -H "X-Relay-Agent-Id: $RELAY_AGENT_ID")
+
+   NAME=$(printf '%s' "$DATA" | jq -r .name)
+   DESC=$(printf '%s' "$DATA" | jq -r .description)
+   WHEN=$(printf '%s' "$DATA" | jq -r '.when_to_use // ""')
+   BODY=$(printf '%s' "$DATA" | jq -r .body)
+
+   DIR="$HOME/.claude/skills/downloaded/$NAME"
+   mkdir -p "$DIR"
+
+   # SKILL.md frontmatter + body.
+   {
+     echo "---"
+     echo "name: $NAME"
+     echo "description: >-"
+     printf '  %s\n' "$DESC"
+     if [ -n "$WHEN" ]; then
+       echo "when_to_use: >-"
+       printf '  %s\n' "$WHEN"
+     fi
+     echo "---"
+     echo
+     printf '%s\n' "$BODY"
+   } > "$DIR/SKILL.md"
+
+   # .relay.yaml sidecar (full server metadata).
+   printf '%s' "$DATA" | jq '.metadata + {
+     id: .id,
+     source_agent_id: .source_agent_id,
+     confidence: .confidence,
+     used_count: .used_count,
+     good_count: .good_count,
+     bad_count: .bad_count,
+     status: .status
+   }' | yq -P > "$DIR/.relay.yaml" 2>/dev/null \
+     || printf '%s' "$DATA" | jq '.metadata' > "$DIR/.relay.yaml"
+
+   # Flat symlink so Claude Code auto-activates on next session.
+   ln -sfn "$DIR" "$HOME/.claude/skills/$NAME"
+   echo "fetched $NAME -> $DIR"
+   ```
+
+   Note: `yq` is optional — the fallback writes JSON, which Relay still
+   accepts. If the user wants YAML, they can `brew install yq`.
+
+3. Tell the user:
+   - Fetched skill path: `~/.claude/skills/<name>/` (the symlink).
+   - Restart Claude Code to trigger auto-activation.
+   - Remind them to run `/relay:review <skill_id> good|bad|stale` after using it.

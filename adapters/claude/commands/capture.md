@@ -1,47 +1,109 @@
 ---
 name: relay:capture
-description: Capture the current session as a Relay skill (Problem → Attempts → Solution)
+description: Capture the current session as a local Relay skill (Problem → Attempts → Solution)
 ---
 
-You are about to call the `skill_capture` MCP tool.
+Argument: optional kebab-case skill name. If missing, propose one and confirm.
 
-Before calling, collect:
+## When to capture
 
-1. **One-sentence problem** that was just solved.
-2. **Every failed attempt** with its failure reason. NEVER omit failures.
-3. **What finally worked.**
-4. **Tools used:** each as `{type: "mcp"|"library"|"cli", name: "..."}`.
-5. **Kebab-case name** (propose it; confirm with user).
-6. **Triggering description** — this decides whether the skill auto-activates later.
+- Only after you (the agent) solved something non-trivial through trial and error.
+- Never for simple fixes.
+- Always enumerate every failed attempt — the failure log is the most valuable part.
 
-## How to write the `description` (critical)
+## Step 1 — collect fields from the session
 
-The description is the primary trigger. Claude Code matches it against future
-user prompts to decide whether to load this skill. Write it keyword-rich and
-"pushy" — like an advertisement — not as a terse fact.
+Gather, asking the user to confirm each:
 
-Bad: `"AWS App Runner not available in Seoul"`
+| Field | Notes |
+|---|---|
+| `name` | kebab-case, e.g. `stripe-rate-limit-handler` |
+| `description` | PUSHY, keyword-rich, bilingual (include a Korean trigger sentence for Korean authors). See the main `relay` SKILL.md for the pattern. |
+| `when_to_use` | One sentence answering "when would a future agent load this?" |
+| `problem.symptom` | Short. What the user saw. |
+| `problem.context` | Optional — language, framework, runtime, region. |
+| `solution.approach` | One sentence on what finally worked. |
+| `attempts` | **List every failed attempt** as `{tried, failed_because}`, then one `{worked}` entry. |
+| `tools_used` | List as `{type: "mcp"\|"library"\|"cli", name}`. |
+| `languages`, `libraries`, `domain` | Free-form context tags. |
+| Body sections | At least `Problem`, `What I tried`, `What worked`, `Tools used`, `When NOT to use this`. |
 
-Good: `"AWS App Runner deployment guide for Korean developers — App Runner is
-NOT available in ap-northeast-2 (Seoul). Use this skill whenever the user
-mentions deploying to AWS App Runner, especially with Seoul/ap-northeast-2
-region, or hits 'Could not connect to apprunner.ap-northeast-2' errors.
-Contains the Tokyo (ap-northeast-1) + cross-region ECR workaround.
-서울 리전 App Runner 배포 계획 시 반드시 참고."`
+## Step 2 — write the two files
 
-Checklist for the description:
-- Names the **symptom keywords** a future user would naturally type.
-- Includes a **"Use this skill whenever…" clause** listing 3+ trigger phrases.
-- Mentions **language/platform/region** if that scopes the problem.
-- Includes **a Korean trigger sentence** if the user is Korean — description
-  matching is stronger with native-language cues.
-- Under 500 chars total (Claude Code truncates description+when_to_use at 1536 combined).
+```bash
+set -euo pipefail
+NAME="<name>"
+DIR="$HOME/.claude/skills/mine/$NAME"
+mkdir -p "$DIR"
 
-Confirm the description with the user before calling `skill_capture`.
+# SKILL.md
+cat > "$DIR/SKILL.md" <<'MD'
+---
+name: <NAME>
+description: >-
+  <DESCRIPTION — pushy, keyword-rich, bilingual>
+when_to_use: >-
+  <ONE SENTENCE>
+---
 
-## After capture
+## Problem
+
+<PROBLEM.SYMPTOM + PROBLEM.CONTEXT>
+
+## What I tried
+
+<numbered list of attempts — include every failure + reason>
+
+## What worked
+
+<SOLUTION.APPROACH with enough detail to reproduce>
+
+## Tools used
+
+<list>
+
+## When NOT to use this
+
+<edge cases or conditions that invalidate the approach>
+MD
+
+# .relay.yaml — Relay metadata sidecar
+# (written by a small jq pipeline for safety; yq -P converts JSON → YAML if installed)
+jq -n \
+  --arg id "local-$(date -u +%s)-$RANDOM" \
+  --arg aid "$(. "${XDG_CONFIG_HOME:-$HOME/.config}/relay/env" && echo "$RELAY_AGENT_ID")" \
+  --arg sym "<PROBLEM.SYMPTOM>" \
+  --arg ctx "<PROBLEM.CONTEXT or empty>" \
+  --arg app "<SOLUTION.APPROACH>" \
+  --argjson attempts '<ATTEMPTS as JSON array>' \
+  --argjson tools    '<TOOLS_USED as JSON array>' \
+  --argjson langs    '<LANGUAGES as JSON array>' \
+  --argjson libs     '<LIBRARIES as JSON array>' \
+  --arg domain "<DOMAIN or empty>" \
+  '{
+    id: $id,
+    source_agent_id: $aid,
+    created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+    updated_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+    problem: {symptom: $sym, context: (if $ctx == "" then null else $ctx end)},
+    solution: {approach: $app, tools_used: $tools},
+    attempts: $attempts,
+    context: {languages: $langs, libraries: $libs, domain: (if $domain == "" then null else $domain end)},
+    trigger: "manual",
+    confidence: 0.5,
+    used_count: 0, good_count: 0, bad_count: 0,
+    status: "active",
+    uploaded: false
+  }' | (yq -P > "$DIR/.relay.yaml" 2>/dev/null || cat > "$DIR/.relay.yaml")
+
+# Flat symlink for Claude Code auto-activation.
+ln -sfn "$DIR" "$HOME/.claude/skills/$NAME"
+echo "captured mine/$NAME"
+```
+
+## Step 3 — report
 
 Show the user:
-- The resulting `skill_md_path` and `relay_yaml_path`.
-- The `~/.claude/skills/<name>` auto-activation symlink that was created.
-- A reminder that the skill is local-only; call `/relay:upload <name>` to share it.
+- `~/.claude/skills/mine/<name>/` path.
+- Flat symlink at `~/.claude/skills/<name>` created.
+- Skill stays local-only until they run `/relay:upload <name>`.
