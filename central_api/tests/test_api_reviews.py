@@ -17,8 +17,13 @@ def app(db_session):
     return app
 
 
+async def _register(client: AsyncClient, agent_id: str) -> dict[str, str]:
+    r = await client.post("/auth/register", json={"agent_id": agent_id})
+    return {"X-Relay-Agent-Id": agent_id, "X-Relay-Agent-Secret": r.json()["secret"]}
+
+
 async def _seed_skill(client: AsyncClient, agent: str = "uploader") -> str:
-    await client.post("/auth/register", json={"agent_id": agent})
+    headers = await _register(client, agent)
     r = await client.post("/skills", json={
         "name": "r-skill", "description": "d", "when_to_use": "w", "body": "b",
         "metadata": {
@@ -27,7 +32,7 @@ async def _seed_skill(client: AsyncClient, agent: str = "uploader") -> str:
             "attempts": [],
             "context": {"languages": [], "libraries": []},
         },
-    }, headers={"X-Relay-Agent-Id": agent})
+    }, headers=headers)
     return r.json()["id"]
 
 
@@ -35,10 +40,10 @@ async def _seed_skill(client: AsyncClient, agent: str = "uploader") -> str:
 async def test_post_review_good_updates_counts(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         sid = await _seed_skill(client)
-        await client.post("/auth/register", json={"agent_id": "reviewer"})
+        reviewer_headers = await _register(client, "reviewer")
 
         r = await client.post(f"/skills/{sid}/reviews", json={"signal": "good"},
-                              headers={"X-Relay-Agent-Id": "reviewer"})
+                              headers=reviewer_headers)
         assert r.status_code == 201, r.text
 
         s = (await client.get(f"/skills/{sid}", headers={"X-Relay-Agent-Id": "reviewer"})).json()
@@ -52,11 +57,11 @@ async def test_post_review_good_updates_counts(app):
 async def test_post_review_bad_updates_counts(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         sid = await _seed_skill(client)
-        await client.post("/auth/register", json={"agent_id": "reviewer"})
+        reviewer_headers = await _register(client, "reviewer")
 
         r = await client.post(f"/skills/{sid}/reviews",
                               json={"signal": "bad", "reason": "api_changed"},
-                              headers={"X-Relay-Agent-Id": "reviewer"})
+                              headers=reviewer_headers)
         assert r.status_code == 201
 
         s = (await client.get(f"/skills/{sid}", headers={"X-Relay-Agent-Id": "reviewer"})).json()
@@ -71,9 +76,8 @@ async def test_three_stale_reviews_flip_status(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         sid = await _seed_skill(client)
         for agent in ("r1", "r2", "r3"):
-            await client.post("/auth/register", json={"agent_id": agent})
-            r = await client.post(f"/skills/{sid}/reviews", json={"signal": "stale"},
-                                  headers={"X-Relay-Agent-Id": agent})
+            h = await _register(client, agent)
+            r = await client.post(f"/skills/{sid}/reviews", json={"signal": "stale"}, headers=h)
             assert r.status_code == 201
 
         s = (await client.get(f"/skills/{sid}", headers={"X-Relay-Agent-Id": "r1"})).json()
@@ -85,9 +89,8 @@ async def test_stale_skill_excluded_from_search(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         sid = await _seed_skill(client)
         for agent in ("r1", "r2", "r3"):
-            await client.post("/auth/register", json={"agent_id": agent})
-            await client.post(f"/skills/{sid}/reviews", json={"signal": "stale"},
-                              headers={"X-Relay-Agent-Id": agent})
+            h = await _register(client, agent)
+            await client.post(f"/skills/{sid}/reviews", json={"signal": "stale"}, headers=h)
 
         r = await client.get("/skills/search",
                              params={"query": "x", "search_mode": "problem"},
@@ -100,16 +103,24 @@ async def test_stale_skill_excluded_from_search(app):
 async def test_invalid_signal_rejected(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         sid = await _seed_skill(client)
-        await client.post("/auth/register", json={"agent_id": "r"})
-        r = await client.post(f"/skills/{sid}/reviews", json={"signal": "bogus"},
-                              headers={"X-Relay-Agent-Id": "r"})
+        h = await _register(client, "r")
+        r = await client.post(f"/skills/{sid}/reviews", json={"signal": "bogus"}, headers=h)
         assert r.status_code == 422  # pydantic rejects enum value
 
 
 @pytest.mark.asyncio
 async def test_review_on_missing_skill_404(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        await client.post("/auth/register", json={"agent_id": "r"})
-        r = await client.post("/skills/sk_nope/reviews", json={"signal": "good"},
-                              headers={"X-Relay-Agent-Id": "r"})
+        h = await _register(client, "r")
+        r = await client.post("/skills/sk_nope/reviews", json={"signal": "good"}, headers=h)
         assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_review_without_secret_rejected(app):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        sid = await _seed_skill(client)
+        await client.post("/auth/register", json={"agent_id": "r"})
+        r = await client.post(f"/skills/{sid}/reviews", json={"signal": "good"},
+                              headers={"X-Relay-Agent-Id": "r"})
+        assert r.status_code == 401

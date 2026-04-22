@@ -20,6 +20,8 @@ dependencies = [
     "httpx>=0.26.0",
     # Week 2C — local embeddings
     "sentence-transformers>=3.0",
+    # Week 3B — rate limiting
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]

@@ -69,11 +69,13 @@ def build_server() -> FastMCP:
     async def skill_upload(name: str, api_url: str, agent_id: str) -> dict[str, str]:
         """Upload a local `mine/<name>` skill to the central Relay API.
 
-        Masks PII, re-downloads the server-masked body, updates .relay.yaml with
-        uploaded=True and the body hash.
+        Creates a new remote skill on first upload; subsequent uploads of the same
+        local skill PATCH the existing remote (requires ownership — server enforces
+        source_agent_id == authenticated agent). Masks PII, rewrites the local
+        file with the server-masked body and refreshed body hash.
         """
         result = await upload_skill(UploadInput(name=name, api_url=api_url, agent_id=agent_id))
-        return {"remote_id": result.remote_id, "api_url": result.api_url}
+        return {"remote_id": result.remote_id, "api_url": result.api_url, "mode": result.mode}
 
     @mcp.tool()
     async def skill_fetch(

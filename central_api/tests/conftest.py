@@ -8,6 +8,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _disable_rate_limit():
+    """Tests don't care about rate limiting; keep them deterministic."""
+    os.environ["RELAY_DISABLE_RATE_LIMIT"] = "1"
+    yield
+    os.environ.pop("RELAY_DISABLE_RATE_LIMIT", None)
+
+
 @pytest.fixture(scope="session")
 def database_url() -> str:
     url = os.environ.get(

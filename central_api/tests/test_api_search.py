@@ -17,8 +17,12 @@ def app(db_session):
     return app
 
 
-async def _seed(client: AsyncClient, *, name: str, symptom: str, approach: str, tools=()) -> str:
-    headers = {"X-Relay-Agent-Id": "seeder"}
+async def _register(client: AsyncClient, agent_id: str) -> dict[str, str]:
+    r = await client.post("/auth/register", json={"agent_id": agent_id})
+    return {"X-Relay-Agent-Id": agent_id, "X-Relay-Agent-Secret": r.json()["secret"]}
+
+
+async def _seed(client: AsyncClient, headers, *, name: str, symptom: str, approach: str, tools=()) -> str:
     r = await client.post("/skills", json={
         "name": name,
         "description": f"{name} desc",
@@ -38,12 +42,12 @@ async def _seed(client: AsyncClient, *, name: str, symptom: str, approach: str, 
 @pytest.mark.asyncio
 async def test_search_by_problem_returns_most_similar_first(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        await client.post("/auth/register", json={"agent_id": "seeder"})
-        await client.post("/auth/register", json={"agent_id": "querier"})
+        seeder = await _register(client, "seeder")
+        await _register(client, "querier")
 
-        await _seed(client, name="a", symptom="Stripe 429 under burst",    approach="backoff")
-        await _seed(client, name="b", symptom="how to center a div",        approach="flexbox")
-        await _seed(client, name="c", symptom="Stripe 429 in checkout",    approach="backoff w/ header")
+        await _seed(client, seeder, name="a", symptom="Stripe 429 under burst",    approach="backoff")
+        await _seed(client, seeder, name="b", symptom="how to center a div",        approach="flexbox")
+        await _seed(client, seeder, name="c", symptom="Stripe 429 in checkout",    approach="backoff w/ header")
 
         headers = {"X-Relay-Agent-Id": "querier"}
         r = await client.get("/skills/search", params={
@@ -60,12 +64,12 @@ async def test_search_by_problem_returns_most_similar_first(app):
 @pytest.mark.asyncio
 async def test_search_filters_by_available_tools(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        await client.post("/auth/register", json={"agent_id": "seeder"})
-        await client.post("/auth/register", json={"agent_id": "q"})
+        seeder = await _register(client, "seeder")
+        await _register(client, "q")
 
-        await _seed(client, name="needs-stripe", symptom="429",      approach="retry",
+        await _seed(client, seeder, name="needs-stripe", symptom="429", approach="retry",
                     tools=[{"type": "mcp", "name": "stripe"}])
-        await _seed(client, name="self-contained", symptom="429",    approach="retry", tools=[])
+        await _seed(client, seeder, name="self-contained", symptom="429", approach="retry", tools=[])
 
         # Caller has NO tools available — should only see 'self-contained'
         r = await client.get("/skills/search", params={
@@ -92,10 +96,10 @@ async def test_search_filters_by_available_tools(app):
 @pytest.mark.asyncio
 async def test_search_returns_required_and_missing_tools(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        await client.post("/auth/register", json={"agent_id": "seeder"})
-        await client.post("/auth/register", json={"agent_id": "q"})
+        seeder = await _register(client, "seeder")
+        await _register(client, "q")
 
-        await _seed(client, name="uses-stripe", symptom="x", approach="y",
+        await _seed(client, seeder, name="uses-stripe", symptom="x", approach="y",
                     tools=[{"type": "mcp", "name": "stripe"}])
 
         r = await client.get("/skills/search", params=[

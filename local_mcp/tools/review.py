@@ -5,6 +5,8 @@ from typing import Literal
 
 import httpx
 
+from local_mcp.credentials import load_secret
+
 
 Signal = Literal["good", "bad", "stale"]
 
@@ -36,10 +38,18 @@ async def review_skill(inp: ReviewInput) -> ReviewResult:
     if inp.note is not None:
         payload["note"] = inp.note
 
+    headers = {"X-Relay-Agent-Id": inp.agent_id}
+    secret = load_secret(inp.agent_id)
+    if secret is None:
+        raise RuntimeError(
+            f"No local secret for agent {inp.agent_id}. Run an upload first or re-register."
+        )
+    headers["X-Relay-Agent-Secret"] = secret
+
     transport = _build_transport()
     async with httpx.AsyncClient(
         base_url=inp.api_url,
-        headers={"X-Relay-Agent-Id": inp.agent_id},
+        headers=headers,
         transport=transport,
         timeout=30.0,
     ) as client:

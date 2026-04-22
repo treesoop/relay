@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from central_api.auth import require_agent_id
+from central_api.auth import require_agent_id, require_authenticated_agent
 from central_api.db import get_session
 from central_api.embedding import EmbeddingClient, build_embedding_targets
 from central_api.masking import mask_pii
@@ -18,6 +18,7 @@ from central_api.schemas import (
     SearchResponse,
     SearchResultItem,
     SkillResponse,
+    SkillUpdateRequest,
     SkillUploadRequest,
 )
 
@@ -66,7 +67,7 @@ async def upload_skill(
     body: SkillUploadRequest,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
-    agent_id: Annotated[str, Depends(require_agent_id)],
+    agent_id: Annotated[str, Depends(require_authenticated_agent)],
 ) -> SkillResponse:
     embedder: EmbeddingClient = request.app.state.embedder
 
@@ -182,3 +183,66 @@ async def get_skill(
     if s is None:
         raise HTTPException(status_code=404, detail=f"skill not found: {skill_id}")
     return _to_response(s)
+
+
+@router.patch("/{skill_id}", response_model=SkillResponse)
+async def update_skill(
+    skill_id: str,
+    body: SkillUpdateRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    agent_id: Annotated[str, Depends(require_authenticated_agent)],
+) -> SkillResponse:
+    s = await session.get(Skill, skill_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail=f"skill not found: {skill_id}")
+    if s.source_agent_id != agent_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the original uploader can modify this skill.",
+        )
+
+    embedder: EmbeddingClient = request.app.state.embedder
+
+    if body.name is not None:
+        s.name = body.name
+    if body.description is not None:
+        s.description = body.description
+    if body.when_to_use is not None:
+        s.when_to_use = body.when_to_use
+    if body.body is not None:
+        s.body = mask_pii(body.body)
+    if body.metadata is not None:
+        s.metadata_ = _mask_metadata(body.metadata)
+
+    # Re-embed if any embedding-affecting field changed.
+    if body.description is not None or body.metadata is not None:
+        targets = build_embedding_targets(description=s.description, metadata=s.metadata_)
+        desc_vec, problem_vec, solution_vec = await embedder.embed_many(
+            [targets["description"], targets["problem"], targets["solution"]]
+        )
+        s.description_embedding = desc_vec
+        s.problem_embedding = problem_vec
+        s.solution_embedding = solution_vec
+
+    await session.commit()
+    await session.refresh(s)
+    return _to_response(s)
+
+
+@router.delete("/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_skill(
+    skill_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    agent_id: Annotated[str, Depends(require_authenticated_agent)],
+) -> None:
+    s = await session.get(Skill, skill_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail=f"skill not found: {skill_id}")
+    if s.source_agent_id != agent_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the original uploader can delete this skill.",
+        )
+    await session.delete(s)
+    await session.commit()

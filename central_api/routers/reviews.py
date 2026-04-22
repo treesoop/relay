@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from central_api.auth import require_agent_id
+from central_api.auth import require_authenticated_agent
 from central_api.db import get_session
 from central_api.models import Review, Skill
 from central_api.schemas import ReviewRequest, ReviewResponse
@@ -23,7 +23,7 @@ async def post_review(
     skill_id: str,
     body: ReviewRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
-    agent_id: Annotated[str, Depends(require_agent_id)],
+    agent_id: Annotated[str, Depends(require_authenticated_agent)],
 ) -> ReviewResponse:
     skill = await session.get(Skill, skill_id)
     if skill is None:
