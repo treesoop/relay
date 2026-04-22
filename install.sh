@@ -11,6 +11,11 @@ set -euo pipefail
 REPO_URL="${RELAY_REPO_URL:-https://github.com/treesoop/relay.git}"
 INSTALL_DIR="${RELAY_INSTALL_DIR:-$HOME/.relay}"
 BIN_DIR="${RELAY_BIN_DIR:-$HOME/.local/bin}"
+# Production API. Override via env for self-hosted setups.
+DEFAULT_API_URL="${RELAY_API_URL:-https://x4xv5ngcwv.ap-northeast-1.awsapprunner.com}"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
+ENV_FILE="$CONFIG_DIR/env"
+CRED_FILE="$CONFIG_DIR/credentials.json"
 
 say() { printf "\n\033[1;36m==>\033[0m %s\n" "$*"; }
 fail() { printf "\n\033[1;31merror:\033[0m %s\n" "$*" >&2; exit 1; }
@@ -70,11 +75,64 @@ else
   claude plugin install relay@relay-local
 fi
 
+# --- per-machine agent identity ---
+mkdir -p "$CONFIG_DIR"
+chmod 700 "$CONFIG_DIR"
+
+if [ -f "$ENV_FILE" ] && grep -q '^RELAY_AGENT_ID=' "$ENV_FILE"; then
+  AGENT_ID=$(grep '^RELAY_AGENT_ID=' "$ENV_FILE" | head -1 | cut -d= -f2-)
+  say "reusing existing agent id: $AGENT_ID"
+else
+  HOST=$(hostname -s 2>/dev/null || hostname)
+  HOST_SLUG=$(echo "$HOST" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-//;s/-$//' | cut -c1-24)
+  RAND=$("$PY" -c 'import secrets; print(secrets.token_hex(4))')
+  AGENT_ID="${HOST_SLUG:-agent}-${RAND}"
+  say "generated agent id: $AGENT_ID"
+  {
+    echo "RELAY_API_URL=$DEFAULT_API_URL"
+    echo "RELAY_AGENT_ID=$AGENT_ID"
+  } > "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+fi
+
+# Register with the commons so the server has a row + issues a secret.
+if [ ! -f "$CRED_FILE" ] || ! grep -q "\"$AGENT_ID\"" "$CRED_FILE"; then
+  say "registering $AGENT_ID with $DEFAULT_API_URL"
+  REG_RESP=$(curl -sS -X POST "$DEFAULT_API_URL/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"agent_id\":\"$AGENT_ID\"}" || true)
+  SECRET=$(echo "$REG_RESP" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("secret") or "")' 2>/dev/null || true)
+  if [ -z "$SECRET" ]; then
+    fail "registration returned no secret. Response: $REG_RESP"
+  fi
+  "$PY" - <<PY
+import json, os
+path = "$CRED_FILE"
+data = {}
+if os.path.exists(path):
+    with open(path) as f:
+        data = json.load(f)
+data.setdefault("agents", {})["$AGENT_ID"] = {"secret": "$SECRET"}
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(data, f, indent=2)
+os.chmod(tmp, 0o600)
+os.replace(tmp, path)
+PY
+fi
+
 say "done."
 cat <<EOF
 
 Next:
   1) Restart Claude Code so the MCP server picks up.
-  2) Try /relay:status in any session.
-  3) See $INSTALL_DIR/QUICKSTART.md for the 3-minute walkthrough.
+  2) Add this to your shell profile so /relay:* commands know the API + your agent id:
+
+       source $ENV_FILE
+
+     Or export manually:
+       export RELAY_API_URL=$DEFAULT_API_URL
+       export RELAY_AGENT_ID=$AGENT_ID
+
+  3) Try /relay:status in any session.
 EOF

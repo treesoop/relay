@@ -6,7 +6,6 @@ A local-first MCP server that captures what an agent learned and makes it discov
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-8A2BE2)](https://modelcontextprotocol.io)
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#roadmap)
 [![Tests](https://img.shields.io/badge/tests-109%20passing-brightgreen.svg)](#development)
 
 ---
@@ -92,41 +91,18 @@ Each skill is a two-file directory:
 
 The split means Relay never breaks Claude Code's official skill schema — custom fields live in the sidecar, not in the frontmatter.
 
-## Current status — Weeks 1–4 shipped
+## What's in the box
 
-**Full MVP loop is live** against a cloud deployment (AWS App Runner, Tokyo). What works today:
-
-- `skill_capture`, `skill_list_local`, `skill_upload`, `skill_fetch`, `skill_review` MCP tools + matching `/relay:*` slash commands.
-- Symlink-based auto-activation — every captured or fetched skill is reachable at `~/.claude/skills/<name>` so Claude Code picks it up on the next session.
-- Central API with pgvector similarity search, PII masking, reviews, confidence recompute, auto-stale after 3 stale signals.
-- **Secret-based agent auth** (see [Security](#security)) and author-scoped `PATCH` / `DELETE` for skill overwrite.
-- Drift detection via SHA-256 body hash.
-- `install.sh` one-liner, `/relay:*` slash commands on the Claude Code plugin, fresh-Claude blind test confirmed auto-activation.
-
-**109 tests passing** (48 local MCP + 61 central API). Cloud smoke in `docs/verification/`.
-
-## Legacy — Week 1 shipped
-
-**Local MCP server is live.** What works today:
-
-- 6 typed domain classes (Attempt, ToolUsed, Problem, Solution, RelayMetadata) with YAML roundtrip.
-- Filesystem layout under `~/.claude/skills/{mine,downloaded,staging}/` with path-traversal guards and kebab-case name validation.
-- `write_skill` / `read_skill` with sidecar roundtrip.
-- Drift detection via SHA-256 body hash (detects manual edits after a skill was uploaded).
-- `skill_capture` MCP tool — structured input, no LLM call inside (the calling agent already interpreted the session).
-- `skill_list_local` MCP tool — enumerates all Relay skills, flags drift.
-- FastMCP stdio server, Claude Code plugin adapter (plugin manifest + SKILL.md + slash command).
-
-**35 tests passing. 13 focused commits. Live end-to-end smoke test passed in Claude Code 2.1.116.**
-
-## Week 2 shipped — central API + local embeddings
-
-- FastAPI server with Postgres + pgvector (384-dim).
-- Local BGE-small-en-v1.5 embeddings via sentence-transformers — no API keys required.
-- `POST /skills`, `GET /skills/{id}`, `GET /skills/search` with hybrid ranking (similarity + confidence + context match).
-- `skill_upload` + `skill_fetch` MCP tools, end-to-end tested through docker-compose.
-- PII masking of bodies and attempts before storage.
-- OpenAI embeddings available behind a single env var flip.
+- **MCP tools**: `skill_capture`, `skill_list_local`, `skill_upload`, `skill_fetch`, `skill_review` — with matching `/relay:*` Claude Code slash commands.
+- **Central API** on AWS App Runner + RDS Postgres 16 with pgvector (384-dim). Hybrid ranking over similarity × confidence × context match.
+- **Local embeddings** — `BAAI/bge-small-en-v1.5` via sentence-transformers. No API keys. OpenAI embeddings are a one-env-var opt-in.
+- **Symlink auto-activation**. Every captured or fetched skill lands at `~/.claude/skills/<name>` so Claude Code picks it up on the next session without a custom hook.
+- **Reviews + confidence**. Good/bad updates confidence; three stale signals auto-retire a skill.
+- **Agent-secret auth** (see [Security](#security)). Writes require `X-Relay-Agent-Secret`; `PATCH` and `DELETE` are author-scoped so only the original uploader can mutate their skill.
+- **Drift detection** via SHA-256 body hash, so local edits after upload are visible.
+- **Rate limits + input caps**: 100 req/min per agent, body ≤ 50 KB, description ≤ 2 KB.
+- **PII masking** of bodies and attempts before anything hits storage.
+- **109 tests** — 48 local MCP + 61 central API.
 
 ## Privacy and embeddings
 
@@ -195,13 +171,19 @@ See `deploy/README.md` for the full runbook and known constraints (App Runner x8
 
 ## Roadmap
 
-Relay is a 4-week MVP targeting dogfood release.
+Shipped:
 
-- **Week 1 — Local MCP + file storage** · *done*
-- **Week 2 — Central API** · FastAPI on AWS App Runner, RDS Postgres + pgvector, local BGE embeddings, `skill_upload` / `skill_fetch`. · *done*
-- **Week 3 — Review + confidence** · `skill_review`, confidence recompute, stale auto-transition. · *done*
-- **Week 4 — Polish + auth + overwrite** · install script, slash commands, symlink auto-activation, agent-secret auth, author-scoped `PATCH`/`DELETE`, rate limits, input caps. · *done*
-- **Next** · closed beta recruitment, GitHub auto-deploy, VPC connector for RDS, web dashboard.
+- Local MCP server, file-based skill storage, drift detection, capture/list tools.
+- Central API — FastAPI on AWS App Runner, RDS Postgres + pgvector, local BGE embeddings, upload/fetch.
+- Reviews, confidence recompute, auto-stale after three stale signals.
+- Installer + slash commands + symlink auto-activation, agent-secret auth, author-scoped `PATCH` / `DELETE`, rate limits, input caps.
+
+On deck:
+
+- GitHub auto-deploy wired into the ECR → App Runner pipeline.
+- RDS moved behind a VPC connector.
+- Web dashboard for browsing the commons.
+- Cross-client adapters (Cursor, Gemini, Codex).
 
 Full design in [`SPEC.md`](./SPEC.md). Week-by-week plans in [`docs/superpowers/plans/`](./docs/superpowers/plans/).
 
@@ -255,4 +237,4 @@ See [`SPEC.md`](./SPEC.md) for the full architecture, data model, MCP tool contr
 
 ---
 
-Built as a dogfood experiment. Feedback and ideas welcome via GitHub issues.
+Feedback and ideas welcome via GitHub issues.

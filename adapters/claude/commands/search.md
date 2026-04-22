@@ -5,11 +5,10 @@ description: Search the central Relay commons for skills matching a query
 
 Ask the user for a search query if they did not include one after the command.
 
-Resolve the API URL from:
-- Environment variable `RELAY_API_URL`, if set.
-- Otherwise the URL printed in the Relay README's "Live URL" section.
-
-Agent id: use `RELAY_AGENT_ID` if set, else `local-dev`.
+Resolve the API URL from `RELAY_API_URL` and the agent id from `RELAY_AGENT_ID`.
+Both are written by `install.sh` into `~/.config/relay/env`; if either is missing,
+stop and tell the user to re-run `install.sh` — do NOT fall back to a hardcoded
+shared id, since agent_id is the ownership key for skill PATCH/DELETE.
 
 If `skill_search` is a registered MCP tool, call it with `search_mode="problem"` and limit 5.
 Otherwise, fall back to Bash: `curl -s -G "$URL/skills/search" --data-urlencode "query=..." --data-urlencode "search_mode=problem" --data-urlencode "limit=5" -H "X-Relay-Agent-Id: $AGENT"`.
