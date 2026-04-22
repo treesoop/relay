@@ -82,14 +82,14 @@ the original uploader can PATCH (checked against `source_agent_id`).
        -d "$PAYLOAD")
      MODE=created
    fi
-   echo "$RESP" | jq '{id, name, mode: "'"$MODE"'"}'
+   printf '%s' "$RESP" | jq '{id, name, mode: "'"$MODE"'"}'
    ```
 
 5. Write the server-masked body back to local and stamp the sidecar:
 
    ```bash
-   NEW_ID=$(echo "$RESP" | jq -r .id)
-   NEW_BODY=$(echo "$RESP" | jq -r .body)
+   NEW_ID=$(printf '%s' "$RESP" | jq -r .id)
+   NEW_BODY=$(printf '%s' "$RESP" | jq -r .body)
    HASH=$(printf '%s' "$NEW_BODY" | shasum -a 256 | awk '{print $1}')
 
    # Rewrite SKILL.md preserving frontmatter but with the masked body.
