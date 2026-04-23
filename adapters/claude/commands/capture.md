@@ -3,7 +3,8 @@ name: relay:capture
 description: Capture the current session as a local Relay skill (Problem → Attempts → Solution)
 ---
 
-Argument: optional kebab-case skill name. If missing, propose one and confirm.
+Argument: optional kebab-case skill name. If missing, propose one from the
+session context — no need to ask the user to confirm.
 
 ## When to capture
 
@@ -11,22 +12,32 @@ Argument: optional kebab-case skill name. If missing, propose one and confirm.
 - Never for simple fixes.
 - Always enumerate every failed attempt — the failure log is the most valuable part.
 
-## Step 1 — collect fields from the session
+## Step 1 — silently extract fields from the session
 
-Gather, asking the user to confirm each:
+Write ALL of the following directly from the session context without asking
+the user for each field. This is a local-only operation that the user has
+already consented to by typing `/relay:capture` — don't interrupt their flow
+again. The next gate is `/relay:upload`, which is where consent actually matters.
 
-| Field | Notes |
+| Field | How you fill it |
 |---|---|
-| `name` | kebab-case, e.g. `stripe-rate-limit-handler` |
-| `description` | PUSHY, keyword-rich, bilingual (include a Korean trigger sentence for Korean authors). See the main `relay` SKILL.md for the pattern. |
-| `when_to_use` | One sentence answering "when would a future agent load this?" |
-| `problem.symptom` | Short. What the user saw. |
+| `name` | Kebab-case, derived from the root symptom + the winning solution (e.g. `stripe-429-exponential-backoff`). |
+| `description` | Pushy, keyword-rich, bilingual for Korean authors. See the main `relay` SKILL.md for the pattern. Future agents match against this. |
+| `when_to_use` | One sentence: when would a future agent load this? |
+| `problem.symptom` | Short. The observable behaviour that kicked off the debugging. |
 | `problem.context` | Optional — language, framework, runtime, region. |
 | `solution.approach` | One sentence on what finally worked. |
-| `attempts` | **List every failed attempt** as `{tried, failed_because}`, then one `{worked}` entry. |
+| `attempts` | **Every failed attempt** as `{tried, failed_because}`, plus one `{worked}` at the end. This is the highest-value part of the skill. |
 | `tools_used` | List as `{type: "mcp"\|"library"\|"cli", name}`. |
 | `languages`, `libraries`, `domain` | Free-form context tags. |
 | Body sections | At least `Problem`, `What I tried`, `What worked`, `Tools used`, `When NOT to use this`. |
+
+**Leak-protection pass before writing.** Scan the body and attempts for:
+absolute paths (`/Users/<me>/…`, `/home/<me>/…`), internal hostnames
+(`*.internal`, `*.local`, `*.corp`), customer or project code names, and
+long hex blobs. Generalize these to pattern descriptions. Relay's server
+also masks PII patterns during upload, but semantic leaks (customer names,
+internal project names) only you can catch.
 
 ## Step 2 — write the two files
 
@@ -68,7 +79,6 @@ when_to_use: >-
 MD
 
 # .relay.yaml — Relay metadata sidecar
-# (written by a small jq pipeline for safety; yq -P converts JSON → YAML if installed)
 jq -n \
   --arg id "local-$(date -u +%s)-$RANDOM" \
   --arg aid "$(. "${XDG_CONFIG_HOME:-$HOME/.config}/relay/env" && echo "$RELAY_AGENT_ID")" \
@@ -81,29 +91,29 @@ jq -n \
   --argjson libs     '<LIBRARIES as JSON array>' \
   --arg domain "<DOMAIN or empty>" \
   '{
-    id: $id,
-    source_agent_id: $aid,
+    id: $id, source_agent_id: $aid,
     created_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
     updated_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
     problem: {symptom: $sym, context: (if $ctx == "" then null else $ctx end)},
     solution: {approach: $app, tools_used: $tools},
     attempts: $attempts,
     context: {languages: $langs, libraries: $libs, domain: (if $domain == "" then null else $domain end)},
-    trigger: "manual",
-    confidence: 0.5,
+    trigger: "manual", confidence: 0.5,
     used_count: 0, good_count: 0, bad_count: 0,
-    status: "active",
-    uploaded: false
+    status: "active", uploaded: false
   }' | (yq -P > "$DIR/.relay.yaml" 2>/dev/null || cat > "$DIR/.relay.yaml")
 
-# Flat symlink for Claude Code auto-activation.
 ln -sfn "$DIR" "$HOME/.claude/skills/$NAME"
-echo "captured mine/$NAME"
 ```
 
-## Step 3 — report
+## Step 3 — one-line confirmation
 
-Show the user:
-- `~/.claude/skills/mine/<name>/` path.
-- Flat symlink at `~/.claude/skills/<name>` created.
-- Skill stays local-only until they run `/relay:upload <name>`.
+Report with a single line, not a paragraph:
+
+```
+captured mine/<NAME> · symlinked at ~/.claude/skills/<NAME> · run /relay:upload to share
+```
+
+Do NOT show the user the whole body or the metadata. They can open the file
+if they want. The capture is local, reversible, and private — no need to
+re-confirm.
