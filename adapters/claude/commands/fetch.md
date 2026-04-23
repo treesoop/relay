@@ -11,16 +11,16 @@ already returns the full body inline — no filesystem write needed.
 
 ## Steps
 
-1. Run the shared bootstrap from the `relay` SKILL.md if `~/.config/relay/env` is missing.
+Fetch is a **read**. Do NOT run bootstrap/register — anonymous header is enough.
 
-2. Download the skill and project it onto disk:
+1. Download the skill and project it onto disk:
 
    ```bash
    set -euo pipefail
-   source "${XDG_CONFIG_HOME:-$HOME/.config}/relay/env"
+   API="${RELAY_API_URL:-https://x4xv5ngcwv.ap-northeast-1.awsapprunner.com}"
+   AID="${RELAY_AGENT_ID:-anonymous}"
    SKILL_ID="<SKILL_ID>"
-   DATA=$(curl -sS "$RELAY_API_URL/skills/$SKILL_ID" \
-     -H "X-Relay-Agent-Id: $RELAY_AGENT_ID")
+   DATA=$(curl -sS "$API/skills/$SKILL_ID" -H "X-Relay-Agent-Id: $AID")
 
    NAME=$(printf '%s' "$DATA" | jq -r .name)
    DESC=$(printf '%s' "$DATA" | jq -r .description)
