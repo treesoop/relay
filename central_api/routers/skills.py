@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from central_api.auth import require_agent_id, require_authenticated_agent
+from central_api.content_scanner import scan as content_scan
 from central_api.db import get_session
 from central_api.embedding import EmbeddingClient, build_embedding_targets
 from central_api.masking import mask_pii
@@ -62,6 +63,21 @@ _EMB_COLUMN_BY_MODE = {
 }
 
 
+def _reject_if_dangerous(*parts: str) -> None:
+    """Scan incoming content for obvious attack payloads and refuse the write.
+
+    Not a complete defense — this stops drive-by, not motivated adversaries.
+    The status message names the category so the client can surface it to the user.
+    """
+    hits = content_scan(*parts)
+    if hits:
+        detail = "; ".join(f"{h.reason}: {h.snippet!r}" for h in hits)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"content rejected by scanner: {detail}",
+        )
+
+
 @router.post("", response_model=SkillResponse, status_code=status.HTTP_201_CREATED)
 async def upload_skill(
     body: SkillUploadRequest,
@@ -70,6 +86,8 @@ async def upload_skill(
     agent_id: Annotated[str, Depends(require_authenticated_agent)],
 ) -> SkillResponse:
     embedder: EmbeddingClient = request.app.state.embedder
+
+    _reject_if_dangerous(body.body, body.description, body.when_to_use or "")
 
     masked_body = mask_pii(body.body)
     masked_meta = _mask_metadata(body.metadata)
@@ -203,6 +221,10 @@ async def update_skill(
         )
 
     embedder: EmbeddingClient = request.app.state.embedder
+
+    _reject_if_dangerous(
+        body.body or "", body.description or "", body.when_to_use or "",
+    )
 
     if body.name is not None:
         s.name = body.name
