@@ -85,22 +85,26 @@ SECRET=$(jq -r ".agents[\"$RELAY_AGENT_ID\"].secret" \
              "${XDG_CONFIG_HOME:-$HOME/.config}/relay/credentials.json")
 ```
 
-## Phase: capture after recovery
+## Phase: capture after recovery, then ask about sharing
 
-When you just finished solving something non-trivial through multiple tries,
-do NOT ask the user whether to save it. Just capture it locally with
-`/relay:capture`; the write is local-only and reversible. The real consent
-gate is `/relay:upload`, which is where the skill actually leaves the
-machine. Mention the local capture with one line afterward:
+When you just finished solving something non-trivial, capture it locally
+**without asking** (the write is local-only, reversible, private).
 
-> `captured mine/<name> · run /relay:upload to share`
+Immediately after the local write, ask **once** whether to share it with
+the commons — don't defer this to a future `/relay:upload` command the
+user will forget. The question happens while the context is fresh:
 
-## Phase: upload (explicit consent required)
+> `captured mine/<name>`
+>
+> `Share with the Relay commons? (y / N / preview)`
 
-When the user runs `/relay:upload`, show them a diff preview of what will
-leave the machine — the masked body, the detected sensitive patterns, the
-commons endpoint. Wait for explicit yes. This is the moment to be careful,
-not the local capture.
+Handle the answer:
+- **`y`** → run the full `/relay:upload <name>` flow inline. Report the `sk_` id.
+- **`preview`** → show the masked body diff + detected sensitive patterns the server would strip (absolute paths, internal hostnames, etc.), then ask again.
+- **`N` / silence / anything else** → default NO, skill stays local. One line: `kept local · /relay:upload <name> any time.`
+
+This is the real consent gate. Show the masked diff on `preview` so the
+user sees exactly what leaves their machine before it does.
 
 ## Skill layout on disk
 

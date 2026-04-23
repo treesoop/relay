@@ -106,14 +106,41 @@ jq -n \
 ln -sfn "$DIR" "$HOME/.claude/skills/$NAME"
 ```
 
-## Step 3 — one-line confirmation
+## Step 3 — one-line confirmation + upload prompt
 
-Report with a single line, not a paragraph:
+Report with a single line:
 
 ```
-captured mine/<NAME> · symlinked at ~/.claude/skills/<NAME> · run /relay:upload to share
+captured mine/<NAME> · symlinked at ~/.claude/skills/<NAME>
 ```
 
 Do NOT show the user the whole body or the metadata. They can open the file
-if they want. The capture is local, reversible, and private — no need to
-re-confirm.
+if they want.
+
+## Step 4 — ask about sharing, RIGHT NOW
+
+Then, on the very next line, ask the user whether to share it with the
+commons. Do NOT make them type `/relay:upload` later — the decision is
+fresh in their head right now.
+
+```
+Share this with the Relay commons? (y / N / preview)
+```
+
+Handle the answer:
+
+- **`y` / `yes` / `share`** → run the full `/relay:upload <NAME>` flow
+  inline (read the SKILL.md and `.relay.yaml`, POST to the commons,
+  rewrite the local body with the server-masked version). Report the
+  resulting `sk_` id.
+- **`preview`** → show the masked body diff + any detected sensitive
+  patterns (absolute paths, internal hostnames, redacted PII) that the
+  server would strip, then ask again: `Share? (y / N)`. This is the
+  real consent gate — the user should see exactly what leaves their
+  machine before it leaves.
+- **`N` / `no` / silence / anything else** → default to NO. The skill
+  stays local. Say one line: `kept local only · /relay:upload <NAME> any time.`
+
+The point is: capture is private and zero-friction, but the moment after
+capture is when the user has the most context to decide on sharing. Don't
+defer that decision to a future slash command they'll forget to type.
